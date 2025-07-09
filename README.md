@@ -1,6 +1,6 @@
-1. Clone openairinterface5g
+1. Clone the repo
 ```bash
-git clone TODO --recurse-submodules
+git clone https://github.com/seung-cha/6733_proj.git --recurse-submodules
 ```
 
 
