@@ -1,0 +1,3 @@
+[submodule "openairinterface5g"]
+	path = openairinterface5g
+	url = https://github.com/seung-cha/openairinterface5g.git
