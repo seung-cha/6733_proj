@@ -3,7 +3,11 @@ import numpy as np
 import multiprocessing
 import time
 import re
-#TODO: Import pytable for hdf5 (to store TX/RX samples)
+import tables as tb
+
+from scripts import WriterProcess
+
+
 
 # TODO: ANOTHER PORT FOR TX/RX
 # --- Configuration ---
@@ -11,35 +15,17 @@ GNB_IP_ADDRESS = "127.0.0.1"  # Or the IP address of the machine running the gNB
 DATA_PORT = 55555
 CONTROL_PORT = 55556
 
-def get_samples(message, num_antennas, num_samples):
-    """
-    Return numpy array of dim [num_antennas][num_samples][2] {0: real, 1: imaginary }
+WRITER_PORT = 55558
 
-    params:
-        * message: raw message from recv_multipart()
-    """
-
-    # Get samples for each antenna
-    # samples[num_antennas][num_samples][i], i = 0 (real), = 1 (imaginary)
-    samples = np.zeros((num_antennas, num_samples, 2), dtype= np.int16)
-
-    c16t = np.dtype(np.int16).newbyteorder('>') # big-endian int16
-    for i in range(num_antennas):
-        # First two msgs for topic and timestamp
-        msg = np.frombuffer(message[2 + i], dtype= c16t)
-        for j in range(num_samples):
-            samples[i][j][0] = msg[j * 2]
-            samples[i][j][1] = msg[j * 2 + 1]
-
-    return samples
 
 
 # TODO: another process for TX/RX
-def iq_subscriber_process(data_endpoint, stop_event):
+def iq_subscriber_process(data_endpoint, stop_event, writer_endpoint):
     """
     This function runs in a separate process and continuously subscribes to the
     IQ data stream from the gNodeB.
     """
+
     print(f"[Sub-Process] Connecting to data publisher at {data_endpoint}...")
     context = zmq.Context()
     socket = context.socket(zmq.SUB)
@@ -53,34 +39,18 @@ def iq_subscriber_process(data_endpoint, stop_event):
     socket.setsockopt_string(zmq.SUBSCRIBE, "rx_stream")
     print("[Sub-Process] Subscribed to 'tx_stream' and 'rx_stream' topics.")
 
-    rx_count = 0
-    tx_count = 0
+    writer_socket = context.socket(zmq.PUB)
+    writer_socket.connect(writer_endpoint)
 
     while not stop_event.is_set():
         # Poll for incoming messages with a timeout to allow checking the stop_event
         socks = dict(poller.poll(timeout=500))
         if socket in socks and socks[socket] == zmq.POLLIN:
-            multipart_msg = socket.recv_multipart()
-            
-            topic = multipart_msg[0].decode('utf-8')
-            timestamp = np.frombuffer(multipart_msg[1], dtype=np.uint64)[0]
-            
-            num_antennas = len(multipart_msg) - 2
-            if num_antennas > 0:
-                num_samples = len(multipart_msg[2]) // 4  # Each sample is 4 bytes (complex<int16>)
-            else:
-                num_samples = 0
+            msg = socket.recv_multipart()
+            writer_socket.send_multipart(msg)
 
-            samples = get_samples(multipart_msg, num_antennas, num_samples)
             
 
-
-            if topic == "rx_stream":
-                rx_count += 1
-                print(f"[DATA] RX Packet {rx_count:5d} | TS: {timestamp} | Ant: {num_antennas} | Samples/Ant: {num_samples}")
-            elif topic == "tx_stream":
-                tx_count += 1
-                print(f"[DATA] TX Packet {tx_count:5d} | TS: {timestamp} | Ant: {num_antennas} | Samples/Ant: {num_samples}")
     
     print("[Sub-Process] Subscriber process stopping...")
     socket.close()
@@ -140,14 +110,26 @@ if __name__ == "__main__":
 
     data_endpoint = f"tcp://{GNB_IP_ADDRESS}:{DATA_PORT}"
     control_endpoint = f"tcp://{GNB_IP_ADDRESS}:{CONTROL_PORT}"
+    writer_endpoint = f'tcp://localhost:{WRITER_PORT}'
 
     # Create a multiprocessing Event to signal the subscriber process to stop
     stop_event = multiprocessing.Event()
     
     # Create the subscriber process
-    subscriber = multiprocessing.Process(target=iq_subscriber_process, args=(data_endpoint, stop_event))
+    subscriber = multiprocessing.Process(target=iq_subscriber_process, args=(data_endpoint, stop_event, writer_endpoint))
     subscriber.daemon = True
     subscriber.start()
+
+    #Create a writer process
+    writer = multiprocessing.Process(target= WriterProcess, args=(writer_endpoint,))
+    writer.daemon = True
+    writer.start()
+
+    # Create socket
+    writer_context = zmq.Context()
+    writer_socket = writer_context.socket(zmq.PUB)
+    writer_socket.connect(writer_endpoint)
+
 
     time.sleep(1)  # Give the subscriber a moment to start up
 
@@ -174,9 +156,14 @@ if __name__ == "__main__":
 
                 if match_tx:
                     count = match_tx.group(1)
+
+                    # Create file
+                    writer_socket.send('new'.encode('utf-8'))
                     send_control_command(control_endpoint, f"set_tx {count}")
                 elif match_rx:
                     count = match_rx.group(1)
+                    # Create file
+                    writer_socket.send('new'.encode('utf-8'))
                     send_control_command(control_endpoint, f"set_rx {count}")
                 else:
                     print("Invalid command. Please use the format shown in the menu.")
@@ -186,6 +173,18 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\nCtrl+C detected. Shutting down.")
     finally:
+        # Stop the writer server
+        writer_socket.send('stop'.encode('utf-8'))
+        if writer.is_alive():
+            print('Waiting for writer to stop')
+            writer.join(timeout= 2.0)
+        
+        if writer.is_alive():
+            print('Terminating writer')
+            writer.terminate()
+            writer.join()
+        
+
         print("Main process: Notifying subscriber to stop...")
         stop_event.set()
         if subscriber.is_alive():
