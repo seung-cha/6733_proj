@@ -1,4 +1,4 @@
-import zmq # TODO install pyzmq
+import zmq
 import numpy as np
 import multiprocessing
 import time
@@ -10,7 +10,6 @@ from scripts import WriterProcess
 
 
 
-# TODO: ANOTHER PORT FOR TX/RX
 # --- Configuration ---
 GNB_IP_ADDRESS = "127.0.0.1"  # Or the IP address of the machine running the gNB
 DATA_RX_PORT = 55555
@@ -20,7 +19,6 @@ WRITER_PORT = 55558
 
 
 
-# TODO: another process for TX/RX
 def iq_subscriber_process(data_endpoint, stop_event, writer_endpoint, sub_type: Literal['rx_stream', 'tx_stream']):
     """
     This function runs in a separate process and continuously subscribes to the
@@ -87,7 +85,6 @@ def send_control_command(control_endpoint, command):
         socket.close()
         context.term()
 
-# TODO: Command for monostatic sample acquisition
 def print_menu():
     """Prints the user menu."""
     print("\n" + "="*40)
