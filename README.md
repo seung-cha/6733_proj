@@ -9,6 +9,29 @@ git clone https://github.com/seung-cha/6733_proj.git --recurse-submodules
 * 55557: controller
 * 55558: writer
 
+# hdf5 file format
+  - root
+    - rx_group
+      * antenna0
+      * antenna1
+      * ...
+      * antennaN
+    - tx_group
+      * antenna0
+      * antenna1
+      * ...
+      * antennaN
+
+```
+AntennaN [Table]
+
+ |[timestamp]|[count]|[real]|[im] |
+0| (ui32)    | (i32) |(i16) |(i16)|
+1| ...       | ...   | ...  |     |
+2| ...       | ...   | ...  |     |
+```
+
+
 # Simulate the Base Station
 
 To build openairinterface, first install the necessary libraries
