@@ -2,6 +2,8 @@
 *.log
 *.raw
 
+# records
+*.h5
 
 # my personal files :p
 kwds
