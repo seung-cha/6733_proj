@@ -3,6 +3,11 @@
 git clone https://github.com/seung-cha/6733_proj.git --recurse-submodules
 ```
 
+# Ports used
+* 55555: rx publisher
+* 55556: tx publisher
+* 55557: controller
+* 55558: writer
 
 # Simulate the Base Station
 

@@ -4,6 +4,7 @@ import multiprocessing
 import time
 import re
 import tables as tb
+from typing import Literal
 
 from scripts import WriterProcess
 
@@ -12,15 +13,15 @@ from scripts import WriterProcess
 # TODO: ANOTHER PORT FOR TX/RX
 # --- Configuration ---
 GNB_IP_ADDRESS = "127.0.0.1"  # Or the IP address of the machine running the gNB
-DATA_PORT = 55555
-CONTROL_PORT = 55556
-
+DATA_RX_PORT = 55555
+DATA_TX_PORT = 55556
+CONTROL_PORT = 55557
 WRITER_PORT = 55558
 
 
 
 # TODO: another process for TX/RX
-def iq_subscriber_process(data_endpoint, stop_event, writer_endpoint):
+def iq_subscriber_process(data_endpoint, stop_event, writer_endpoint, sub_type: Literal['rx_stream', 'tx_stream']):
     """
     This function runs in a separate process and continuously subscribes to the
     IQ data stream from the gNodeB.
@@ -35,9 +36,9 @@ def iq_subscriber_process(data_endpoint, stop_event, writer_endpoint):
     poller.register(socket, zmq.POLLIN)
     
     socket.connect(data_endpoint)
-    socket.setsockopt_string(zmq.SUBSCRIBE, "tx_stream")
-    socket.setsockopt_string(zmq.SUBSCRIBE, "rx_stream")
-    print("[Sub-Process] Subscribed to 'tx_stream' and 'rx_stream' topics.")
+    socket.setsockopt_string(zmq.SUBSCRIBE, sub_type)
+    print(f"[Sub-Process] Subscribed to '{sub_type}' topic.")
+
 
     writer_socket = context.socket(zmq.PUB)
     writer_socket.connect(writer_endpoint)
@@ -108,7 +109,8 @@ if __name__ == "__main__":
     # Ensure the multiprocessing context is correctly handled on all platforms
     multiprocessing.freeze_support()
 
-    data_endpoint = f"tcp://{GNB_IP_ADDRESS}:{DATA_PORT}"
+    data_rx_endpoint = f"tcp://{GNB_IP_ADDRESS}:{DATA_RX_PORT}"
+    data_tx_endpoint = f"tcp://{GNB_IP_ADDRESS}:{DATA_TX_PORT}"
     control_endpoint = f"tcp://{GNB_IP_ADDRESS}:{CONTROL_PORT}"
     writer_endpoint = f'tcp://localhost:{WRITER_PORT}'
 
@@ -116,9 +118,13 @@ if __name__ == "__main__":
     stop_event = multiprocessing.Event()
     
     # Create the subscriber process
-    subscriber = multiprocessing.Process(target=iq_subscriber_process, args=(data_endpoint, stop_event, writer_endpoint))
-    subscriber.daemon = True
-    subscriber.start()
+    subscriber_rx = multiprocessing.Process(target=iq_subscriber_process, args=(data_rx_endpoint, stop_event, writer_endpoint, 'tx_stream'))
+    subscriber_rx.daemon = True
+    subscriber_rx.start()
+
+    subscriber_tx = multiprocessing.Process(target=iq_subscriber_process, args=(data_tx_endpoint, stop_event, writer_endpoint, 'rx_stream'))
+    subscriber_tx.daemon = True
+    subscriber_tx.start()
 
     #Create a writer process
     writer = multiprocessing.Process(target= WriterProcess, args=(writer_endpoint,))
@@ -187,11 +193,18 @@ if __name__ == "__main__":
 
         print("Main process: Notifying subscriber to stop...")
         stop_event.set()
-        if subscriber.is_alive():
-            subscriber.join(timeout=2.0) # Wait for the process to finish
-        if subscriber.is_alive():
-            print("Main process: Subscriber did not exit cleanly, terminating...")
-            subscriber.terminate() # Forcefully terminate if it doesn't stop
-            subscriber.join()
+        if subscriber_rx.is_alive():
+            subscriber_rx.join(timeout=2.0) # Wait for the process to finish
+        if subscriber_rx.is_alive():
+            print("Main process: Subscriber (RX) did not exit cleanly, terminating...")
+            subscriber_rx.terminate() # Forcefully terminate if it doesn't stop
+            subscriber_rx.join()
+
+        if subscriber_tx.is_alive():
+            subscriber_tx.join(timeout=2.0) # Wait for the process to finish
+        if subscriber_tx.is_alive():
+            print("Main process: Subscriber (TX) did not exit cleanly, terminating...")
+            subscriber_tx.terminate() # Forcefully terminate if it doesn't stop
+            subscriber_tx.join()
             
         print("Main process finished.")

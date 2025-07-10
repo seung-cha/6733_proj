@@ -154,7 +154,6 @@ def WriterProcess(write_endpoint):
             multipart_msg = socket.recv_multipart()
             topic = multipart_msg[0].decode('utf-8')
 
-            print('recev: ' + topic)
             if topic == ('new'): # Start a new recording session
                 record = Record()
             elif topic == ('stop'):
