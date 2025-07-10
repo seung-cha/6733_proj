@@ -93,6 +93,7 @@ def print_menu():
     print("\n" + "="*40)
     print("        OAI IQ Stream Controller")
     print("="*40)
+    print(" <num>all     : Stream <num> RX and TX packets.")
     print("  --- TX Commands ---")
     print("  ctx         : Stream TX continuously (-1)")
     print("  stx         : Stop streaming TX (0)")
@@ -159,10 +160,11 @@ if __name__ == "__main__":
             else:
                 match_tx = re.match(r"(\d+)tx", user_input)
                 match_rx = re.match(r"(\d+)rx", user_input)
+                match_all = re.match(r"(\d+)all", user_input)
+
 
                 if match_tx:
                     count = match_tx.group(1)
-
                     # Create file
                     writer_socket.send('new'.encode('utf-8'))
                     send_control_command(control_endpoint, f"set_tx {count}")
@@ -171,6 +173,11 @@ if __name__ == "__main__":
                     # Create file
                     writer_socket.send('new'.encode('utf-8'))
                     send_control_command(control_endpoint, f"set_rx {count}")
+                elif match_all:
+                    count = match_all.group(1)
+                    # Create file
+                    writer_socket.send('new'.encode('utf-8'))
+                    send_control_command(control_endpoint, f'all {count}')
                 else:
                     print("Invalid command. Please use the format shown in the menu.")
             
