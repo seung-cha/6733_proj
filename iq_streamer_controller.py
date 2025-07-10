@@ -11,6 +11,29 @@ GNB_IP_ADDRESS = "127.0.0.1"  # Or the IP address of the machine running the gNB
 DATA_PORT = 55555
 CONTROL_PORT = 55556
 
+def get_samples(message, num_antennas, num_samples):
+    """
+    Return numpy array of dim [num_antennas][num_samples][2] {0: real, 1: imaginary }
+
+    params:
+        * message: raw message from recv_multipart()
+    """
+
+    # Get samples for each antenna
+    # samples[num_antennas][num_samples][i], i = 0 (real), = 1 (imaginary)
+    samples = np.zeros((num_antennas, num_samples, 2), dtype= np.int16)
+
+    c16t = np.dtype(np.int16).newbyteorder('>') # big-endian int16
+    for i in range(num_antennas):
+        # First two msgs for topic and timestamp
+        msg = np.frombuffer(message[2 + i], dtype= c16t)
+        for j in range(num_samples):
+            samples[i][j][0] = msg[j * 2]
+            samples[i][j][1] = msg[j * 2 + 1]
+
+    return samples
+
+
 # TODO: another process for TX/RX
 def iq_subscriber_process(data_endpoint, stop_event):
     """
@@ -47,6 +70,10 @@ def iq_subscriber_process(data_endpoint, stop_event):
                 num_samples = len(multipart_msg[2]) // 4  # Each sample is 4 bytes (complex<int16>)
             else:
                 num_samples = 0
+
+            samples = get_samples(multipart_msg, num_antennas, num_samples)
+            
+
 
             if topic == "rx_stream":
                 rx_count += 1
