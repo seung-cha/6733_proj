@@ -64,11 +64,12 @@ class Record:
                     row = self.rx_tables[i].row
                 else:
                     row = self.tx_tables[i].row
-                
+
                 row['timestamp'] = timestamp
                 row['count'] = j
                 row['real'] = samples[i][j][0]
                 row['im'] = samples[i][j][1]
+
                 row.append()
 
     def _MakeRxTable(self, num_antennas: int):
@@ -122,12 +123,13 @@ def get_samples(message, num_antennas, num_samples):
 
     # Get samples for each antenna
     # samples[num_antennas][num_samples][i], i = 0 (real), = 1 (imaginary)
-    samples = np.zeros((num_antennas, num_samples, 2), dtype= np.int16)
+    samples = np.zeros((num_antennas, num_samples, 4), dtype= np.int32)
+    c16t = np.dtype(np.int16)
 
-    c16t = np.dtype(np.int16).newbyteorder('>') # big-endian int16
     for i in range(num_antennas):
         # First two msgs for topic and timestamp
         msg = np.frombuffer(message[2 + i], dtype= c16t)
+
         for j in range(num_samples):
             samples[i][j][0] = msg[j * 2]
             samples[i][j][1] = msg[j * 2 + 1]
@@ -171,7 +173,6 @@ def WriterProcess(write_endpoint):
                 if topic == "rx_stream":
                     rx_count += 1
                     print(f"[DATA] RX Packet {rx_count:5d} | TS: {timestamp} | Ant: {num_antennas} | Samples/Ant: {num_samples}")
-                    
                     if record is not None:
                         record.Record(samples, num_antennas, num_samples, timestamp, 'rx')
                 elif topic == "tx_stream":
@@ -181,8 +182,8 @@ def WriterProcess(write_endpoint):
                     if record is not None:
                         record.Record(samples, num_antennas, num_samples, timestamp, 'tx')
 
-    except Exception:
-        pass
+    except Exception as e:
+        raise e
     finally:
         del record
         print('writer ended')    
