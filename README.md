@@ -213,6 +213,6 @@ The last step is to correlate `TX` and `RX` samples using correlate function in 
 # Collecting Sameples to Plot
 
 1. Run the base station and `iq_streamer_controller.py`.
-2. Type <num>all (e.g 10all) to collect <num> samples of TX and RX data
+2. Type <num>all (e.g 10all) to collect <num> samples of TX and RX data. A new .md5 file will be generated.
 3. Run `Plot.ipynb`. Make sure to change the `FILE_NAME` defined in the file.
 4. Observe the outcomes.
