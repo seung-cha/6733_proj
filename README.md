@@ -210,11 +210,9 @@ Once the pipelines are set up and packet formats are realised & decoded, we can 
 
 The last step is to correlate `TX` and `RX` samples using correlate function in `numpy` or `scikit`. (Make sure we correlate the `TX` `RX` samples with the same timestamp)
 
+# Collecting Sameples to Plot
 
-
-
-
-
-
-
-
+1. Run the base station and `iq_streamer_controller.py`.
+2. Type <num>all (e.g 10all) to collect <num> samples of TX and RX data
+3. Run `Plot.ipynb`. Make sure to change the `FILE_NAME` defined in the file.
+4. Observe the outcomes.
