@@ -48,9 +48,6 @@ def iq_subscriber_process(data_endpoint, stop_event, writer_endpoint, sub_type: 
             msg = socket.recv_multipart()
             writer_socket.send_multipart(msg)
 
-            
-
-    
     print("[Sub-Process] Subscriber process stopping...")
     socket.close()
     context.term()
